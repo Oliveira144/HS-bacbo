@@ -4,7 +4,7 @@ from collections import Counter
 st.set_page_config(page_title="Bac Bo – Painel Profissional", layout="centered")
 
 st.title("🎲 Bac Bo – Painel Profissional por Cores")
-st.caption("Estilo Baccarat Scoreboard | Streak, Zigzag, Block, Tie Zone")
+st.caption("Entrada por botões de cor | Streak, Zigzag, Block, Tie Zone")
 
 # =========================
 # ESTADO
@@ -13,19 +13,25 @@ if "history" not in st.session_state:
     st.session_state.history = []  # sequência de 'P','B','T'
 
 # =========================
-# ENTRADA POR COR
+# ENTRADA POR COR (BOTÕES)
 # =========================
 st.subheader("➕ Registrar rodada (cor)")
 
-cor = st.radio(
-    "Resultado da rodada:",
-    options=["P (Player/azul)", "B (Banker/vermelho)", "T (Tie/dourado)"],
-    horizontal=True
-)
+col1, col2, col3 = st.columns(3)
+clicked = None
 
-if st.button("Registrar", type="primary"):
-    v = cor[0]  # pega só 'P','B' ou 'T'
-    st.session_state.history.append(v)
+with col1:
+    if st.button("PLAYER", type="primary"):
+        clicked = "P"
+with col2:
+    if st.button("BANKER"):
+        clicked = "B"
+with col3:
+    if st.button("TIE"):
+        clicked = "T"
+
+if clicked:
+    st.session_state.history.append(clicked)
 
 # =========================
 # HISTÓRICO VISUAL
@@ -43,9 +49,12 @@ if seq:
     total_t = ult.count("T")
 
     c1, c2, c3 = st.columns(3)
-    with c1: st.metric("Player (P)", total_p)
-    with c2: st.metric("Banker (B)", total_b)
-    with c3: st.metric("Tie (T)", total_t)
+    with c1:
+        st.metric("Player (P)", total_p)
+    with c2:
+        st.metric("Banker (B)", total_b)
+    with c3:
+        st.metric("Tie (T)", total_t)
 else:
     st.info("Ainda sem rodadas.")
 
@@ -60,7 +69,7 @@ if len(seq) >= 6:
     if len(seq_pb) == 0:
         st.info("Ainda não há P/B suficientes para leitura.")
     else:
-        ult_pb = seq_pb[-12:]  # janela curta de leitura
+        ult_pb = seq_pb[-12:]  # janela de leitura curta
 
         # DOMINÂNCIA DE COR
         cont = Counter(ult_pb)
@@ -89,7 +98,7 @@ if len(seq) >= 6:
             if diffs >= len(ult_pb) - 2:
                 zigzag = True
 
-        # BLOCK 2–2 / 3–3
+        # BLOCK 2–2 / 3–3 (foco 2–2)
         block_side = None
         if len(ult_pb) >= 4:
             ult4 = ult_pb[-4:]
@@ -97,7 +106,7 @@ if len(seq) >= 6:
                 # PPBB ou BBPP
                 block_side = ult4[-1]
 
-        # TIE ZONE
+        # TIE ZONE (empates recentes)
         ult9 = seq[-9:] if len(seq) >= 9 else seq
         ties_9 = ult9.count("T")
         tie_zone = ties_9 >= 2
@@ -154,9 +163,12 @@ if len(seq) >= 6:
 
         # EXIBIÇÃO
         c1, c2, c3 = st.columns(3)
-        with c1: st.metric("Dom. Player", f"{dom_p*100:.1f}%")
-        with c2: st.metric("Dom. Banker", f"{dom_b*100:.1f}%")
-        with c3: st.metric("Estado da mesa", estado)
+        with c1:
+            st.metric("Dom. Player", f"{dom_p*100:.1f}%")
+        with c2:
+            st.metric("Dom. Banker", f"{dom_b*100:.1f}%")
+        with c3:
+            st.metric("Estado da mesa", estado)
 
         st.subheader("🎯 Leitura / Sugestão")
         if tipo in ["P/B", "TIE"]:
