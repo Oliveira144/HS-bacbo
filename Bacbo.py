@@ -1,174 +1,170 @@
 import streamlit as st
 from collections import Counter
-import pandas as pd
 
-st.set_page_config(page_title="Bac Bo Profissional Real", layout="centered")
+st.set_page_config(page_title="Bac Bo – Painel Profissional", layout="centered")
 
-st.title("🎲 Bac Bo – Leitura Profissional Real")
-st.caption("Somas reais | Empate 88x/25x | Leitura curta de mesa")
+st.title("🎲 Bac Bo – Painel Profissional por Cores")
+st.caption("Estilo Baccarat Scoreboard | Streak, Zigzag, Block, Tie Zone")
 
 # =========================
 # ESTADO
 # =========================
-if "historico" not in st.session_state:
-    st.session_state.historico = []
+if "history" not in st.session_state:
+    st.session_state.history = []  # sequência de 'P','B','T'
 
 # =========================
-# ENTRADA SIMPLES
+# ENTRADA POR COR
 # =========================
-st.subheader("➕ Registrar Rodada")
+st.subheader("➕ Registrar rodada (cor)")
 
-col1, col2 = st.columns(2)
-with col1:
-    soma_p = st.number_input("Soma Player", min_value=2, max_value=12, step=1)
-with col2:
-    soma_b = st.number_input("Soma Banker", min_value=2, max_value=12, step=1)
-
-def calcula_multi_tie(soma):
-    # Regras típicas de Bac Bo para multis de empate
-    if soma in (2, 12):
-        return "88x"
-    elif soma in (3, 11):
-        return "25x"
-    elif soma in (4, 10):
-        return "10x"
-    elif soma in (5, 9):
-        return "6x"
-    else:  # 6,7,8
-        return "4x"
+cor = st.radio(
+    "Resultado da rodada:",
+    options=["P (Player/azul)", "B (Banker/vermelho)", "T (Tie/dourado)"],
+    horizontal=True
+)
 
 if st.button("Registrar", type="primary"):
-    if soma_p > soma_b:
-        vencedor = "P"
-        multi = "-"
-    elif soma_b > soma_p:
-        vencedor = "B"
-        multi = "-"
-    else:
-        vencedor = "T"
-        multi = calcula_multi_tie(soma_p)
-
-    st.session_state.historico.append({
-        "Rodada": len(st.session_state.historico) + 1,
-        "P": soma_p,
-        "B": soma_b,
-        "V": vencedor,
-        "Multi": multi
-    })
+    v = cor[0]  # pega só 'P','B' ou 'T'
+    st.session_state.history.append(v)
 
 # =========================
-# HISTÓRICO
+# HISTÓRICO VISUAL
 # =========================
-st.subheader("📊 Histórico (últimas 20)")
-if st.session_state.historico:
-    df = pd.DataFrame(st.session_state.historico[-20:])
-    st.dataframe(df, use_container_width=True, height=220)
+st.subheader("📊 Roadmap simples (últimas 40)")
 
-    vencedores = [r["V"] for r in st.session_state.historico]
-    total_p = vencedores.count("P")
-    total_b = vencedores.count("B")
-    total_t = vencedores.count("T")
+seq = st.session_state.history
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Player", total_p)
-    with col2:
-        st.metric("Total Banker", total_b)
-    with col3:
-        st.metric("Total Tie", total_t)
+if seq:
+    ult = seq[-40:]
+    st.write("Sequência:", " ".join(ult))
+
+    total_p = ult.count("P")
+    total_b = ult.count("B")
+    total_t = ult.count("T")
+
+    c1, c2, c3 = st.columns(3)
+    with c1: st.metric("Player (P)", total_p)
+    with c2: st.metric("Banker (B)", total_b)
+    with c3: st.metric("Tie (T)", total_t)
 else:
-    st.info("Nenhuma rodada registrada ainda.")
+    st.info("Ainda sem rodadas.")
 
 # =========================
-# ANÁLISE
+# ANÁLISE PROFISSIONAL
 # =========================
-ultimos = st.session_state.historico[-15:]
+if len(seq) >= 6:
+    st.subheader("🧠 Leitura Profissional de Mesa")
 
-if len(ultimos) >= 5:
-    st.subheader("🧠 Análise da Mesa (curto prazo)")
-
-    janela = ultimos[-9:]
-    vencedores_validos = [r["V"] for r in janela if r["V"] != "T"]
-    contagem = Counter(vencedores_validos)
-
-    total_validos = sum(contagem.values())
-    dom_p = contagem.get("P", 0) / total_validos if total_validos else 0
-    dom_b = contagem.get("B", 0) / total_validos if total_validos else 0
-
-    # Ties e multis recentes
-    ties_rec = [r for r in janela if r["V"] == "T"]
-    multis_altas = [r for r in ties_rec if r["Multi"] in ["88x", "25x"]]
-
-    # Pressão de soma
-    media_p = sum(r["P"] for r in janela) / len(janela)
-    media_b = sum(r["B"] for r in janela) / len(janela)
-
-    # Repetição e alternância
-    repeticao = 0
-    if len(vencedores_validos) >= 2 and vencedores_validos[-1] == vencedores_validos[-2]:
-        repeticao = 1
-
-    alternancia = 0
-    if len(vencedores_validos) >= 4:
-        seq = vencedores_validos[-4:]
-        if seq[0] != seq[1] != seq[2] != seq[3]:
-            alternancia = 1
-
-    # Estado da mesa
-    estado = "Estável"
-    if dom_p < 0.55 and dom_b < 0.55:
-        estado = "Volátil"
-    if alternancia and repeticao == 0:
-        estado = "Caótica"
-
-    # Score P/B
-    score_pb = 0
-    score_pb += max(dom_p, dom_b) * 40
-    score_pb += repeticao * 20
-    score_pb += (1 if media_p > 7 or media_b > 7 else 0) * 20
-    score_pb += (1 if estado == "Estável" else 0) * 20
-
-    # Score Tie (ligado a 88x/25x)
-    score_tie = 0
-    score_tie += len(ties_rec) * 10
-    score_tie += len(multis_altas) * 30
-
-    # Sugestão
-    if score_pb >= score_tie and score_pb >= 70 and estado == "Estável":
-        lado = "PLAYER" if dom_p > dom_b else "BANKER"
-        sugestao = f"ENTRAR {lado}"
-        tipo = "P/B"
-    elif score_tie > score_pb and score_tie >= 60:
-        sugestao = "Oportunidade de TIE (88x/25x recente)"
-        tipo = "TIE"
+    # só P/B para leitura de fluxo
+    seq_pb = [x for x in seq if x != "T"]
+    if len(seq_pb) == 0:
+        st.info("Ainda não há P/B suficientes para leitura.")
     else:
-        sugestao = "SEM ENTRADA"
-        tipo = "NEUTRO"
+        ult_pb = seq_pb[-12:]  # janela curta de leitura
 
-    # EXIBIÇÃO
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Dom. Player", f"{dom_p*100:.1f}%")
-    with col2:
-        st.metric("Dom. Banker", f"{dom_b*100:.1f}%")
-    with col3:
-        st.metric("Estado da Mesa", estado)
-    with col4:
-        st.metric("Score P/B", f"{score_pb:.0f}")
+        # DOMINÂNCIA DE COR
+        cont = Counter(ult_pb)
+        total_v = sum(cont.values())
+        dom_p = cont.get("P", 0) / total_v if total_v else 0
+        dom_b = cont.get("B", 0) / total_v if total_v else 0
 
-    col5, col6 = st.columns(2)
-    with col5:
-        st.metric("Ties (últ. 9)", len(ties_rec))
-    with col6:
-        st.metric("Multis 88x/25x", len(multis_altas))
+        # STREAK (3+ e 4+)
+        streak_side = None
+        streak_len = 1
+        if len(ult_pb) >= 2:
+            last = ult_pb[-1]
+            streak_len = 1
+            for x in reversed(ult_pb[:-1]):
+                if x == last:
+                    streak_len += 1
+                else:
+                    break
+            if streak_len >= 3:
+                streak_side = last  # 'P' ou 'B'
 
-    st.subheader("🎯 Sugestão")
-    if tipo == "P/B":
-        st.success(sugestao)
-    elif tipo == "TIE":
-        st.warning(sugestao)
-    else:
-        st.info(sugestao)
+        # ZIGZAG / CHOP
+        zigzag = False
+        if len(ult_pb) >= 6:
+            diffs = sum(1 for i in range(len(ult_pb)-1) if ult_pb[i] != ult_pb[i+1])
+            if diffs >= len(ult_pb) - 2:
+                zigzag = True
+
+        # BLOCK 2–2 / 3–3
+        block_side = None
+        if len(ult_pb) >= 4:
+            ult4 = ult_pb[-4:]
+            if ult4[:2] == ult4[2:] and ult4[0] != ult4[2]:
+                # PPBB ou BBPP
+                block_side = ult4[-1]
+
+        # TIE ZONE
+        ult9 = seq[-9:] if len(seq) >= 9 else seq
+        ties_9 = ult9.count("T")
+        tie_zone = ties_9 >= 2
+
+        # ESTADO DA MESA
+        if streak_side and streak_len >= 4:
+            estado = f"STREAK FORTE {'PLAYER' if streak_side=='P' else 'BANKER'} ({streak_len})"
+            tendencia = streak_side
+        elif streak_side:
+            estado = f"STREAK {'PLAYER' if streak_side=='P' else 'BANKER'} ({streak_len})"
+            tendencia = streak_side
+        elif zigzag:
+            estado = "ZIGZAG (Chop forte)"
+            tendencia = None
+        elif block_side:
+            estado = f"BLOCK {'PLAYER' if block_side=='P' else 'BANKER'}"
+            tendencia = block_side
+        elif dom_p >= 0.6:
+            estado = "Tendência PLAYER"
+            tendencia = "P"
+        elif dom_b >= 0.6:
+            estado = "Tendência BANKER"
+            tendencia = "B"
+        else:
+            estado = "Neutro/Compressão"
+            tendencia = None
+
+        # SUGESTÃO OPERACIONAL
+        if tie_zone and not tendencia:
+            tipo = "TIE"
+            sugestao = "Zona de TIE: considerar T apenas com stake mínima."
+        elif estado.startswith("STREAK FORTE"):
+            lado = "PLAYER" if tendencia == "P" else "BANKER"
+            tipo = "P/B"
+            sugestao = f"STREAK forte: seguir {lado} com stake maior até sinal de quebra."
+        elif estado.startswith("STREAK"):
+            lado = "PLAYER" if tendencia == "P" else "BANKER"
+            tipo = "P/B"
+            sugestao = f"STREAK ativo: seguir {lado} com stake leve."
+        elif estado.startswith("BLOCK"):
+            lado = "PLAYER" if tendencia == "P" else "BANKER"
+            tipo = "P/B"
+            sugestao = f"BLOCK formado: operar a favor de {lado} na continuidade do bloco."
+        elif estado.startswith("Tendência"):
+            lado = "PLAYER" if tendencia == "P" else "BANKER"
+            tipo = "P/B"
+            sugestao = f"Tendência de cor: entrada moderada em {lado}."
+        elif zigzag:
+            tipo = "ZIGZAG"
+            sugestao = "ZIGZAG forte: evitar entradas pesadas; se operar, usar mão mínima."
+        else:
+            tipo = "NEUTRO"
+            sugestao = "Sem padrão confiável: melhor aguardar formação."
+
+        # EXIBIÇÃO
+        c1, c2, c3 = st.columns(3)
+        with c1: st.metric("Dom. Player", f"{dom_p*100:.1f}%")
+        with c2: st.metric("Dom. Banker", f"{dom_b*100:.1f}%")
+        with c3: st.metric("Estado da mesa", estado)
+
+        st.subheader("🎯 Leitura / Sugestão")
+        if tipo in ["P/B", "TIE"]:
+            st.success(sugestao)
+        elif tipo == "ZIGZAG":
+            st.warning(sugestao)
+        else:
+            st.info(sugestao)
 
 else:
-    st.info("Registre pelo menos 5 rodadas para ativar a análise.")
+    st.info("Registre pelo menos 6 rodadas para começar a leitura profissional.")
